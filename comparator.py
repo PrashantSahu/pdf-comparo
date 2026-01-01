@@ -14,7 +14,6 @@ from pdf_extraction import (
     extract_text_from_pdf,
     extract_logos_from_pdf,
     get_pdf_files,
-    PYMUPDF_AVAILABLE,
     DEFAULT_CHUNK_SIZE,
     DEFAULT_CHUNK_OVERLAP,
 )
@@ -23,7 +22,6 @@ from embeddings import (
     embed_logos,
     compute_similarities_numpy,
     compute_similarities_faiss,
-    FAISS_AVAILABLE,
     DEFAULT_MODEL,
     DEFAULT_CLIP_MODEL,
 )
@@ -43,7 +41,6 @@ class PDFFormComparator:
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
         logo_weight: float = DEFAULT_LOGO_WEIGHT,
-        use_logo_comparison: bool = True,
     ):
         """
         Initialize the comparator.
@@ -54,34 +51,26 @@ class PDFFormComparator:
             chunk_size: Number of characters per chunk for long documents.
             chunk_overlap: Number of overlapping characters between chunks.
             logo_weight: Weight for logo similarity (0.0 to 1.0).
-            use_logo_comparison: Whether to use logo/image comparison.
         """
         print(f"Loading text model: {model_name}...")
         self.model = SentenceTransformer(model_name)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.logo_weight = logo_weight
-        self.use_logo_comparison = use_logo_comparison and PYMUPDF_AVAILABLE
 
-        if self.use_logo_comparison:
-            print(f"Loading CLIP model: {clip_model_name}...")
-            self.clip_model = SentenceTransformer(clip_model_name)
-            print("CLIP model loaded successfully.")
-        elif use_logo_comparison and not PYMUPDF_AVAILABLE:
-            print("Warning: pymupdf not available. Logo comparison disabled.")
-            print("Install with: pip install pymupdf")
+        print(f"Loading CLIP model: {clip_model_name}...")
+        self.clip_model = SentenceTransformer(clip_model_name)
 
         print("Models loaded successfully.")
 
     def build_embeddings(
-        self, pdf_files: list[Path], include_logos: bool = True
+        self, pdf_files: list[Path]
     ) -> tuple[np.ndarray, Optional[np.ndarray], list[str], list[str]]:
         """
         Build text and logo embeddings for a list of PDF files.
 
         Args:
             pdf_files: List of PDF file paths.
-            include_logos: Whether to extract and embed logos.
 
         Returns:
             Tuple of (text embeddings, logo embeddings, file names, extracted texts)
@@ -102,17 +91,16 @@ class PDFFormComparator:
                 file_names.append(pdf_path.name)
                 texts.append(text[:500] + "..." if len(text) > 500 else text)
 
-                # Extract and embed logos if enabled
-                if include_logos and self.use_logo_comparison:
-                    logos = extract_logos_from_pdf(str(pdf_path))
-                    logo_embedding = embed_logos(logos, self.clip_model)
-                    if logo_embedding is not None:
-                        logo_embeddings.append(logo_embedding)
-                    else:
-                        # Use zero vector as placeholder
-                        logo_embeddings.append(
-                            np.zeros(self.clip_model.get_sentence_embedding_dimension())
-                        )
+                # Extract and embed logos
+                logos = extract_logos_from_pdf(str(pdf_path))
+                logo_embedding = embed_logos(logos, self.clip_model)
+                if logo_embedding is not None:
+                    logo_embeddings.append(logo_embedding)
+                else:
+                    # Use zero vector as placeholder
+                    logo_embeddings.append(
+                        np.zeros(self.clip_model.get_sentence_embedding_dimension())
+                    )
 
         text_arr = np.array(text_embeddings).astype("float32")
         logo_arr = np.array(logo_embeddings).astype("float32") if logo_embeddings else None
@@ -162,32 +150,20 @@ class PDFFormComparator:
         print("\nComputing text similarities...")
         text_weight = 1.0 - self.logo_weight
 
-        if use_faiss and FAISS_AVAILABLE:
+        if use_faiss:
             print("Using FAISS for similarity search...")
-            text_similarities, text_indices = compute_similarities_faiss(
+            _, _ = compute_similarities_faiss(
                 local_text_emb, remote_text_emb, len(remote_names)
             )
         else:
             print("Using numpy for similarity search...")
-            text_similarities, text_indices = compute_similarities_numpy(
+            _, _ = compute_similarities_numpy(
                 local_text_emb, remote_text_emb, len(remote_names)
             )
 
-        # Compute logo similarities if available
-        use_logos = (
-            self.use_logo_comparison
-            and local_logo_emb is not None
-            and remote_logo_emb is not None
-            and len(local_logo_emb) > 0
-            and len(remote_logo_emb) > 0
-        )
-
-        if use_logos:
-            print("Computing logo similarities...")
-            logo_similarity_matrix = np.dot(local_logo_emb, remote_logo_emb.T)
-        else:
-            logo_similarity_matrix = None
-            text_weight = 1.0  # Use only text if no logos
+        # Compute logo similarities
+        print("Computing logo similarities...")
+        logo_similarity_matrix = np.dot(local_logo_emb, remote_logo_emb.T)
 
         # Combine similarities and rank
         print("\nRanking matches...")
@@ -199,13 +175,8 @@ class PDFFormComparator:
 
             for j in range(len(remote_names)):
                 text_sim = float(np.dot(local_text_emb[i], remote_text_emb[j]))
-
-                if use_logos and logo_similarity_matrix is not None:
-                    logo_sim = float(logo_similarity_matrix[i, j])
-                    combined_sim = (text_weight * text_sim) + (self.logo_weight * logo_sim)
-                else:
-                    logo_sim = None
-                    combined_sim = text_sim
+                logo_sim = float(logo_similarity_matrix[i, j])
+                combined_sim = (text_weight * text_sim) + (self.logo_weight * logo_sim)
 
                 match_scores.append({
                     "remote_form": remote_names[j],
@@ -233,8 +204,7 @@ class PDFFormComparator:
         """Print results in a formatted way."""
         print("\n" + "=" * 80)
         print("MATCHING RESULTS")
-        if self.use_logo_comparison:
-            print(f"(Text weight: {1-self.logo_weight:.0%}, Logo weight: {self.logo_weight:.0%})")
+        print(f"(Text weight: {1-self.logo_weight:.0%}, Logo weight: {self.logo_weight:.0%})")
         print("=" * 80)
 
         for r in results:
@@ -242,19 +212,14 @@ class PDFFormComparator:
             print(f"Local Form: {r['local_form']}")
             print(f"Best Match: {r['best_match']}")
             print(f"Combined Similarity: {r['best_similarity']:.4f} ({r['best_similarity']*100:.2f}%)")
-            if r.get('best_text_similarity') is not None:
-                print(f"  Text Similarity:   {r['best_text_similarity']:.4f} ({r['best_text_similarity']*100:.2f}%)")
-            if r.get('best_logo_similarity') is not None:
-                print(f"  Logo Similarity:   {r['best_logo_similarity']:.4f} ({r['best_logo_similarity']*100:.2f}%)")
+            print(f"  Text Similarity:   {r['best_text_similarity']:.4f} ({r['best_text_similarity']*100:.2f}%)")
+            print(f"  Logo Similarity:   {r['best_logo_similarity']:.4f} ({r['best_logo_similarity']*100:.2f}%)")
             print(f"\nTop matches:")
             for match in r["top_matches"]:
                 combined = match["combined_similarity"]
-                text_sim = match.get("text_similarity")
-                logo_sim = match.get("logo_similarity")
-                if logo_sim is not None:
-                    print(f"  • {match['remote_form']}: {combined:.4f} (text: {text_sim:.4f}, logo: {logo_sim:.4f})")
-                else:
-                    print(f"  • {match['remote_form']}: {combined:.4f} ({combined*100:.2f}%)")
+                text_sim = match["text_similarity"]
+                logo_sim = match["logo_similarity"]
+                print(f"  • {match['remote_form']}: {combined:.4f} (text: {text_sim:.4f}, logo: {logo_sim:.4f})")
 
         print("\n" + "=" * 80)
         print("SUMMARY")

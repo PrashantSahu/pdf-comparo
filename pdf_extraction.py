@@ -5,15 +5,9 @@ PDF extraction utilities for text and logo/image extraction.
 import io
 from pathlib import Path
 
+import fitz  # pymupdf
 import PyPDF2
 from PIL import Image
-
-# Try to import pymupdf for image extraction
-try:
-    import fitz  # pymupdf
-    PYMUPDF_AVAILABLE = True
-except ImportError:
-    PYMUPDF_AVAILABLE = False
 
 
 # Configuration defaults
@@ -71,9 +65,6 @@ def extract_logos_from_pdf(pdf_path: str, max_images: int = 5) -> list[Image.Ima
     Returns:
         List of PIL Image objects.
     """
-    if not PYMUPDF_AVAILABLE:
-        return []
-
     logos = []
     try:
         doc = fitz.open(pdf_path)

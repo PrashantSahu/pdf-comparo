@@ -4,18 +4,12 @@ Embedding utilities for document and logo embeddings.
 
 from typing import Optional
 
+import faiss
 import numpy as np
 from PIL import Image
 from sentence_transformers import SentenceTransformer
 
 from pdf_extraction import chunk_text, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP
-
-# Try to import FAISS, but fall back to numpy if not available
-try:
-    import faiss
-    FAISS_AVAILABLE = True
-except ImportError:
-    FAISS_AVAILABLE = False
 
 
 # Default models
@@ -139,9 +133,6 @@ def compute_similarities_faiss(
     Returns:
         Tuple of (similarities, indices) arrays.
     """
-    if not FAISS_AVAILABLE:
-        raise ImportError("FAISS is not available. Install with: pip install faiss-cpu")
-
     dimension = remote_embeddings.shape[1]
     index = faiss.IndexFlatIP(dimension)
     index.add(remote_embeddings)
