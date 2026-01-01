@@ -464,7 +464,7 @@ class PDFFormComparator:
                 text_sim = match.get("text_similarity")
                 logo_sim = match.get("logo_similarity")
                 if logo_sim is not None:
-                    print(f"  • {match['remote_form']}: {combined:.4f} (text: {text_sim:.2f}, logo: {logo_sim:.2f})")
+                    print(f"  • {match['remote_form']}: {combined:.4f} (text: {text_sim:.4f}, logo: {logo_sim:.4f})")
                 else:
                     print(f"  • {match['remote_form']}: {combined:.4f} ({combined*100:.2f}%)")
 
