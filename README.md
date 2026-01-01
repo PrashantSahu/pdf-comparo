@@ -31,33 +31,18 @@ git clone https://github.com/PrashantSahu/pdf-comparo.git
 cd pdf-comparo
 ```
 
-### 3. Run the setup script
-
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-This will:
-
-- Create a virtual environment (`.venv/`)
-- Install all dependencies using uv
-
-### 4. Add your PDF files
+### 3. Add your PDF files
 
 - Place your source PDFs in the `local_forms/` directory
 - Place your reference/template PDFs in the `remote_forms/` directory
 
-### 5. Run the comparison
+### 4. Run the comparison
 
 ```bash
-# Using uv run (no need to activate venv)
 uv run python compare_forms_embeddings.py
-
-# Or activate the venv first
-source .venv/bin/activate
-python compare_forms_embeddings.py
 ```
+
+This automatically creates a virtual environment and installs dependencies on first run.
 
 ## Usage Options
 
@@ -102,15 +87,7 @@ python compare_forms_embeddings.py --use-faiss
 For a simpler TF-IDF based comparison (no ML models required):
 
 ```bash
-python compare_forms.py
-```
-
-## Deactivate
-
-When done, deactivate the virtual environment:
-
-```bash
-deactivate
+uv run python compare_forms.py
 ```
 
 ## Dependencies
