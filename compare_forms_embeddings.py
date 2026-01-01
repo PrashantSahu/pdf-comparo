@@ -150,46 +150,46 @@ class PDFFormComparator:
 
     def compute_similarities_numpy(
         self,
-        builder_embeddings: np.ndarray,
-        library_embeddings: np.ndarray,
+        local_embeddings: np.ndarray,
+        remote_embeddings: np.ndarray,
         top_k: int,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute similarities using numpy (cosine similarity for normalized vectors).
 
         Args:
-            builder_embeddings: Embeddings for builder forms.
-            library_embeddings: Embeddings for library forms.
+            local_embeddings: Embeddings for local forms.
+            remote_embeddings: Embeddings for remote forms.
             top_k: Number of top matches to return.
 
         Returns:
             Tuple of (similarities, indices) arrays.
         """
         # Compute dot product (equivalent to cosine similarity for normalized vectors)
-        similarity_matrix = np.dot(builder_embeddings, library_embeddings.T)
+        similarity_matrix = np.dot(local_embeddings, remote_embeddings.T)
 
-        # Get top-k indices and similarities for each builder form
-        k = min(top_k, library_embeddings.shape[0])
+        # Get top-k indices and similarities for each local form
+        k = min(top_k, remote_embeddings.shape[0])
         indices = np.argsort(-similarity_matrix, axis=1)[:, :k]
         similarities = np.array([
-            similarity_matrix[i, indices[i]] for i in range(len(builder_embeddings))
+            similarity_matrix[i, indices[i]] for i in range(len(local_embeddings))
         ])
 
         return similarities, indices
 
     def find_matches(
         self,
-        builder_dir: str,
-        library_dir: str,
+        local_dir: str,
+        remote_dir: str,
         top_k: int = DEFAULT_TOP_K,
         use_faiss: bool = False,
     ) -> list[dict]:
         """
-        Find closest matching forms for each builder form.
+        Find closest matching forms for each local form.
 
         Args:
-            builder_dir: Directory containing builder forms.
-            library_dir: Directory containing library forms.
+            local_dir: Directory containing local forms.
+            remote_dir: Directory containing remote forms.
             top_k: Number of top matches to return.
             use_faiss: Whether to use FAISS for similarity search (default: False).
 
@@ -197,51 +197,51 @@ class PDFFormComparator:
             List of match results.
         """
         # Get PDF files
-        builder_files = self.get_pdf_files(builder_dir)
-        library_files = self.get_pdf_files(library_dir)
+        local_files = self.get_pdf_files(local_dir)
+        remote_files = self.get_pdf_files(remote_dir)
 
-        print(f"\nFound {len(builder_files)} files in {builder_dir}")
-        print(f"Found {len(library_files)} files in {library_dir}")
+        print(f"\nFound {len(local_files)} files in {local_dir}")
+        print(f"Found {len(remote_files)} files in {remote_dir}")
 
         # Build embeddings
-        print("\nBuilding embeddings for library forms...")
-        library_embeddings, library_names, _ = self.build_embeddings(library_files)
+        print("\nBuilding embeddings for remote forms...")
+        remote_embeddings, remote_names, _ = self.build_embeddings(remote_files)
 
-        print("\nBuilding embeddings for builder forms...")
-        builder_embeddings, builder_names, _ = self.build_embeddings(builder_files)
+        print("\nBuilding embeddings for local forms...")
+        local_embeddings, local_names, _ = self.build_embeddings(local_files)
 
-        if len(library_embeddings) == 0 or len(builder_embeddings) == 0:
+        if len(remote_embeddings) == 0 or len(local_embeddings) == 0:
             print("Error: No valid embeddings could be created.")
             return []
 
         # Compute similarities
         print("\nComputing similarities...")
-        k = min(top_k, len(library_names))
+        k = min(top_k, len(remote_names))
 
         if use_faiss and FAISS_AVAILABLE:
             print("Using FAISS for similarity search...")
-            dimension = library_embeddings.shape[1]
+            dimension = remote_embeddings.shape[1]
             index = faiss.IndexFlatIP(dimension)
-            index.add(library_embeddings)
-            similarities, indices = index.search(builder_embeddings, k)
+            index.add(remote_embeddings)
+            similarities, indices = index.search(local_embeddings, k)
         else:
             print("Using numpy for similarity search...")
             similarities, indices = self.compute_similarities_numpy(
-                builder_embeddings, library_embeddings, k
+                local_embeddings, remote_embeddings, k
             )
 
         # Compile results
         results = []
-        for i, builder_name in enumerate(builder_names):
+        for i, local_name in enumerate(local_names):
             matches = []
             for j in range(k):
                 matches.append({
-                    "library_form": library_names[indices[i][j]],
+                    "remote_form": remote_names[indices[i][j]],
                     "similarity": float(similarities[i][j]),
                 })
             results.append({
-                "builder_form": builder_name,
-                "best_match": matches[0]["library_form"],
+                "local_form": local_name,
+                "best_match": matches[0]["remote_form"],
                 "best_similarity": matches[0]["similarity"],
                 "top_matches": matches,
             })
@@ -256,19 +256,19 @@ class PDFFormComparator:
 
         for r in results:
             print(f"\n{'─' * 60}")
-            print(f"Builder Form: {r['builder_form']}")
-            print(f"Best Match:   {r['best_match']}")
-            print(f"Similarity:   {r['best_similarity']:.4f} ({r['best_similarity']*100:.2f}%)")
+            print(f"Local Form: {r['local_form']}")
+            print(f"Best Match: {r['best_match']}")
+            print(f"Similarity: {r['best_similarity']:.4f} ({r['best_similarity']*100:.2f}%)")
             print(f"\nTop matches:")
             for match in r["top_matches"]:
                 sim = match["similarity"]
-                print(f"  • {match['library_form']}: {sim:.4f} ({sim*100:.2f}%)")
+                print(f"  • {match['remote_form']}: {sim:.4f} ({sim*100:.2f}%)")
 
         print("\n" + "=" * 80)
         print("SUMMARY")
         print("=" * 80)
         for r in results:
-            print(f"{r['builder_form']} → {r['best_match']} ({r['best_similarity']:.2%})")
+            print(f"{r['local_form']} → {r['best_match']} ({r['best_similarity']:.2%})")
 
     def save_results(self, results: list[dict], output_path: str) -> None:
         """Save results to a JSON file."""
@@ -352,8 +352,8 @@ Examples:
 
     # Find matches
     results = comparator.find_matches(
-        builder_dir=args.local_dir,
-        library_dir=args.remote_dir,
+        local_dir=args.local_dir,
+        remote_dir=args.remote_dir,
         top_k=args.top_k,
         use_faiss=args.use_faiss,
     )

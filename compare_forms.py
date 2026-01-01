@@ -45,79 +45,79 @@ def compute_similarity(text1: str, text2: str, vectorizer: TfidfVectorizer) -> f
         return 0.0
 
 
-def find_closest_matches(builder_dir: str, library_dir: str):
-    """Find closest matching forms for each builder form."""
-    builder_files = get_pdf_files(builder_dir)
-    library_files = get_pdf_files(library_dir)
-    
-    print(f"Found {len(builder_files)} files in local_forms")
-    print(f"Found {len(library_files)} files in remote_forms")
+def find_closest_matches(local_dir: str, remote_dir: str):
+    """Find closest matching forms for each local form."""
+    local_files = get_pdf_files(local_dir)
+    remote_files = get_pdf_files(remote_dir)
+
+    print(f"Found {len(local_files)} files in local_forms")
+    print(f"Found {len(remote_files)} files in remote_forms")
     print("-" * 80)
-    
+
     # Extract text from all PDFs
     print("\nExtracting text from PDFs...")
-    builder_texts = {}
-    for pdf_path in builder_files:
+    local_texts = {}
+    for pdf_path in local_files:
         text = extract_text_from_pdf(str(pdf_path))
-        builder_texts[pdf_path.name] = text
-        print(f"  Builder: {pdf_path.name} - {len(text)} chars extracted")
-    
-    library_texts = {}
-    for pdf_path in library_files:
+        local_texts[pdf_path.name] = text
+        print(f"  Local: {pdf_path.name} - {len(text)} chars extracted")
+
+    remote_texts = {}
+    for pdf_path in remote_files:
         text = extract_text_from_pdf(str(pdf_path))
-        library_texts[pdf_path.name] = text
-        print(f"  Library: {pdf_path.name} - {len(text)} chars extracted")
+        remote_texts[pdf_path.name] = text
+        print(f"  Remote: {pdf_path.name} - {len(text)} chars extracted")
     
     print("\n" + "=" * 80)
     print("MATCHING RESULTS")
     print("=" * 80)
     
-    # For each builder form, find the closest library form
+    # For each local form, find the closest remote form
     results = []
-    for builder_name, builder_text in builder_texts.items():
+    for local_name, local_text in local_texts.items():
         best_match = None
         best_similarity = -1
         all_similarities = []
-        
-        for library_name, library_text in library_texts.items():
+
+        for remote_name, remote_text in remote_texts.items():
             vectorizer = TfidfVectorizer(stop_words='english')
-            similarity = compute_similarity(builder_text, library_text, vectorizer)
-            all_similarities.append((library_name, similarity))
-            
+            similarity = compute_similarity(local_text, remote_text, vectorizer)
+            all_similarities.append((remote_name, similarity))
+
             if similarity > best_similarity:
                 best_similarity = similarity
-                best_match = library_name
-        
+                best_match = remote_name
+
         # Sort by similarity for detailed view
         all_similarities.sort(key=lambda x: x[1], reverse=True)
-        
+
         results.append({
-            'builder': builder_name,
+            'local': local_name,
             'best_match': best_match,
             'similarity': best_similarity,
             'all_similarities': all_similarities
         })
-        
+
         print(f"\n{'='*60}")
-        print(f"Builder Form: {builder_name}")
-        print(f"Best Match:   {best_match}")
-        print(f"Similarity:   {best_similarity:.4f} ({best_similarity*100:.2f}%)")
+        print(f"Local Form: {local_name}")
+        print(f"Best Match: {best_match}")
+        print(f"Similarity: {best_similarity:.4f} ({best_similarity*100:.2f}%)")
         print(f"\nAll matches (sorted by similarity):")
-        for lib_name, sim in all_similarities[:5]:  # Top 5 matches
-            print(f"  - {lib_name}: {sim:.4f} ({sim*100:.2f}%)")
-    
+        for remote_name, sim in all_similarities[:5]:  # Top 5 matches
+            print(f"  - {remote_name}: {sim:.4f} ({sim*100:.2f}%)")
+
     return results
 
 
 if __name__ == "__main__":
-    builder_dir = "local_forms"
-    library_dir = "remote_forms"
-    
-    results = find_closest_matches(builder_dir, library_dir)
-    
+    local_dir = "local_forms"
+    remote_dir = "remote_forms"
+
+    results = find_closest_matches(local_dir, remote_dir)
+
     print("\n" + "=" * 80)
     print("SUMMARY")
     print("=" * 80)
     for r in results:
-        print(f"{r['builder']} -> {r['best_match']} (similarity: {r['similarity']:.2%})")
+        print(f"{r['local']} -> {r['best_match']} (similarity: {r['similarity']:.2%})")
 
