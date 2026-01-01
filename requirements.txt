@@ -1,0 +1,15 @@
+# PDF text extraction
+PyPDF2>=3.0.0
+
+# Sentence embeddings (runs locally)
+sentence-transformers>=2.2.0
+
+# Efficient similarity search
+faiss-cpu>=1.7.0
+
+# Scientific computing
+numpy>=1.21.0
+
+# Progress bars
+tqdm>=4.64.0
+
