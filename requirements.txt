@@ -1,6 +1,12 @@
 # PDF text extraction
 PyPDF2>=3.0.0
 
+# PDF image extraction (for logo comparison)
+pymupdf>=1.23.0
+
+# Image processing
+Pillow>=9.0.0
+
 # Sentence embeddings (runs locally)
 sentence-transformers>=2.2.0
 
