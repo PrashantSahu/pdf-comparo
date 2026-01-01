@@ -7,17 +7,17 @@ echo "============================================"
 echo "PDF Form Comparison - Setup Script"
 echo "============================================"
 
-# Check if Python 3 is installed
-if ! command -v python3 &> /dev/null; then
-    echo "Error: Python 3 is not installed. Please install Python 3.8+ first."
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo "Error: uv is not installed."
+    echo "Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
-PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-echo "Found Python version: $PYTHON_VERSION"
+echo "Found uv: $(uv --version)"
 
-# Create virtual environment
-VENV_DIR="venv"
+# Create virtual environment and install dependencies
+VENV_DIR=".venv"
 
 if [ -d "$VENV_DIR" ]; then
     echo "Virtual environment already exists. Removing and recreating..."
@@ -25,19 +25,8 @@ if [ -d "$VENV_DIR" ]; then
 fi
 
 echo ""
-echo "Creating virtual environment..."
-python3 -m venv "$VENV_DIR"
-
-echo "Activating virtual environment..."
-source "$VENV_DIR/bin/activate"
-
-echo ""
-echo "Upgrading pip..."
-pip install --upgrade pip
-
-echo ""
-echo "Installing dependencies..."
-pip install -r requirements.txt
+echo "Creating virtual environment and installing dependencies..."
+uv sync
 
 echo ""
 echo "============================================"
@@ -45,9 +34,13 @@ echo "Setup complete!"
 echo "============================================"
 echo ""
 echo "To activate the virtual environment, run:"
-echo "  source venv/bin/activate"
+echo "  source .venv/bin/activate"
 echo ""
 echo "To run the comparison script:"
+echo "  uv run python compare_forms_embeddings.py"
+echo ""
+echo "Or activate first, then run directly:"
+echo "  source .venv/bin/activate"
 echo "  python compare_forms_embeddings.py"
 echo ""
 echo "To deactivate when done:"

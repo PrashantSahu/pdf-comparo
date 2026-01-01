@@ -13,18 +13,25 @@ A Python tool for comparing PDF forms using semantic embeddings and logo matchin
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer
 
 ## Quick Start
 
-### 1. Clone the repository
+### 1. Install uv (if not already installed)
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### 2. Clone the repository
 
 ```bash
 git clone https://github.com/PrashantSahu/pdf-comparo.git
 cd pdf-comparo
 ```
 
-### 2. Run the setup script
+### 3. Run the setup script
 
 ```bash
 chmod +x setup.sh
@@ -32,23 +39,23 @@ chmod +x setup.sh
 ```
 
 This will:
-- Create a virtual environment
-- Install all dependencies
 
-### 3. Add your PDF files
+- Create a virtual environment (`.venv/`)
+- Install all dependencies using uv
+
+### 4. Add your PDF files
 
 - Place your source PDFs in the `local_forms/` directory
 - Place your reference/template PDFs in the `remote_forms/` directory
 
-### 4. Activate the virtual environment
-
-```bash
-source venv/bin/activate
-```
-
 ### 5. Run the comparison
 
 ```bash
+# Using uv run (no need to activate venv)
+uv run python compare_forms_embeddings.py
+
+# Or activate the venv first
+source .venv/bin/activate
 python compare_forms_embeddings.py
 ```
 
