@@ -30,12 +30,25 @@ git clone https://github.com/PrashantSahu/pdf-comparo.git
 cd pdf-comparo
 ```
 
-### 3. Add your PDF files
+### 3. Set up the virtual environment
+
+```bash
+# Create virtual environment
+uv venv
+
+# Activate it
+source .venv/bin/activate
+
+# Install dependencies
+uv sync
+```
+
+### 4. Add your PDF files
 
 - Place your reference/template PDFs in `remote_forms/`
 - Place your source PDFs to compare in `local_forms/`
 
-### 4. Ingest remote forms (one-time)
+### 5. Ingest remote forms (one-time)
 
 ```bash
 uv run python ingest.py
@@ -43,7 +56,7 @@ uv run python ingest.py
 
 This creates a persistent ChromaDB index at `./chroma_db/`. Re-run when remote forms change - it will only index new forms.
 
-### 5. Compare local forms
+### 6. Compare local forms
 
 ```bash
 uv run python compare.py
