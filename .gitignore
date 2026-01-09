@@ -4,6 +4,9 @@ remote_forms/*
 !local_forms/.gitkeep
 !remote_forms/.gitkeep
 
+# ChromaDB local storage
+chroma_db/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

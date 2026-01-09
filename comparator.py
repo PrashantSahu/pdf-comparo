@@ -25,6 +25,7 @@ from embeddings import (
     DEFAULT_MODEL,
     DEFAULT_CLIP_MODEL,
 )
+from vector_store import VectorStore, DEFAULT_CHROMA_PATH
 
 
 DEFAULT_TOP_K = 5  # number of top matches to return
@@ -232,4 +233,113 @@ class PDFFormComparator:
         with open(output_path, "w") as f:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to: {output_path}")
+
+    def build_remote_index(
+        self,
+        remote_dir: str,
+        chroma_path: str = DEFAULT_CHROMA_PATH,
+        clear_existing: bool = False,
+    ) -> int:
+        """
+        Build and persist ChromaDB index for remote forms.
+
+        This should be run once to index all remote forms. The index
+        is persisted to disk and can be reused for batch processing.
+
+        Args:
+            remote_dir: Directory containing remote PDF forms.
+            chroma_path: Path to persist ChromaDB data.
+            clear_existing: Whether to clear existing index before building.
+
+        Returns:
+            Number of documents indexed.
+        """
+        print(f"\nBuilding ChromaDB index for remote forms...")
+        print(f"Remote directory: {remote_dir}")
+        print(f"ChromaDB path: {chroma_path}")
+
+        store = VectorStore(persist_path=chroma_path)
+
+        if clear_existing:
+            print("Clearing existing index...")
+            store.clear_collections()
+
+        count = store.build_index(
+            pdf_dir=remote_dir,
+            text_model=self.model,
+            clip_model=self.clip_model,
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+        )
+
+        print(f"\nRemote index built successfully with {count} forms.")
+        return count
+
+    def find_matches_with_chroma(
+        self,
+        local_dir: str,
+        chroma_path: str = DEFAULT_CHROMA_PATH,
+        top_k: int = DEFAULT_TOP_K,
+    ) -> list[dict]:
+        """
+        Find matches for local forms using pre-built ChromaDB index.
+
+        This method assumes remote forms have already been indexed using
+        build_remote_index(). Only local forms are embedded on each call.
+
+        Args:
+            local_dir: Directory containing local PDF forms.
+            chroma_path: Path to ChromaDB data.
+            top_k: Number of top matches to return.
+
+        Returns:
+            List of match results.
+        """
+        # Load vector store
+        store = VectorStore(persist_path=chroma_path)
+        text_count, logo_count = store.get_collection_count()
+
+        if not store.is_indexed():
+            raise ValueError(
+                f"Remote forms not indexed. Run build_remote_index() first. "
+                f"Found {text_count} text embeddings and {logo_count} logo embeddings."
+            )
+
+        print(f"\nLoaded ChromaDB index with {text_count} remote forms.")
+
+        # Get local PDF files
+        local_files = get_pdf_files(local_dir)
+        print(f"Found {len(local_files)} local forms to process.")
+
+        if len(local_files) == 0:
+            print("No local forms found.")
+            return []
+
+        # Build embeddings for local forms only
+        print("\nBuilding embeddings for local forms...")
+        local_text_emb, local_logo_emb, local_names, _ = self.build_embeddings(local_files)
+
+        if len(local_text_emb) == 0:
+            print("Error: No valid embeddings could be created for local forms.")
+            return []
+
+        # Query ChromaDB
+        print("\nQuerying ChromaDB for matches...")
+        text_weight = 1.0 - self.logo_weight
+
+        query_results = store.query(
+            text_embeddings=local_text_emb,
+            logo_embeddings=local_logo_emb,
+            top_k=top_k,
+            text_weight=text_weight,
+        )
+
+        # Add local form names to results
+        results = []
+        for i, local_name in enumerate(local_names):
+            result = query_results[i]
+            result["local_form"] = local_name
+            results.append(result)
+
+        return results
 

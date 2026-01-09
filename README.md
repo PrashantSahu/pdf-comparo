@@ -8,6 +8,7 @@ A Python tool for comparing PDF forms using semantic embeddings and logo matchin
 - **Logo/Brand Matching**: Uses CLIP to compare logos and visual branding in forms
 - **Weighted Scoring**: Combines text (70%) and logo (30%) similarity scores
 - **Handles Long Documents**: Automatic chunking with mean pooling for documents of any length
+- **Persistent Vector Storage**: Uses ChromaDB for local storage, enabling efficient batch processing
 
 ## Requirements
 
@@ -31,16 +32,70 @@ cd pdf-comparo
 
 ### 3. Add your PDF files
 
-- Place your source PDFs in the `local_forms/` directory
-- Place your reference/template PDFs in the `remote_forms/` directory
+- Place your reference/template PDFs in `remote_forms/`
+- Place your source PDFs to compare in `local_forms/`
 
-### 4. Run the comparison
+### 4. Ingest remote forms (one-time)
 
 ```bash
-uv run python compare_forms_embeddings.py
+uv run python ingest.py
 ```
 
-This automatically creates a virtual environment and installs dependencies on first run.
+This creates a persistent ChromaDB index at `./chroma_db/`. Re-run when remote forms change - it will only index new forms.
+
+### 5. Compare local forms
+
+```bash
+uv run python compare.py
+```
+
+This compares all local forms against the indexed remote forms.
+
+## CLI Options
+
+### ingest.py
+
+```bash
+uv run python ingest.py [OPTIONS]
+
+Options:
+  --forms-dir PATH     Directory containing PDFs to ingest (default: remote_forms)
+  --chroma-path PATH   Path to ChromaDB storage (default: ./chroma_db)
+  --clear              Clear existing index before ingesting
+```
+
+### compare.py
+
+```bash
+uv run python compare.py [OPTIONS]
+
+Options:
+  --local-dir PATH     Directory containing local PDFs to compare (default: local_forms)
+  --chroma-path PATH   Path to ChromaDB storage (default: ./chroma_db)
+  --top-k N            Number of top matches to return (default: 5)
+  --output FILE        Save results to JSON file (optional)
+```
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  INGEST (ingest.py) - Run once, or when remote forms change    │
+│  ───────────────────────────────────────────────────────────    │
+│  • Extract text and logos from remote PDFs                      │
+│  • Generate embeddings (text + CLIP)                            │
+│  • Store in ChromaDB (skips already indexed forms)              │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  COMPARE (compare.py) - Run for each batch of local forms      │
+│  ───────────────────────────────────────────────────────────    │
+│  • Load pre-built ChromaDB index                                │
+│  • Embed local forms                                            │
+│  • Query index for top-K matches                                │
+│  • Return combined similarity scores                            │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Dependencies
 
@@ -48,6 +103,6 @@ This automatically creates a virtual environment and installs dependencies on fi
 - `pymupdf` - PDF image/logo extraction
 - `Pillow` - Image processing
 - `sentence-transformers` - Text and CLIP embeddings
-- `faiss-cpu` - Efficient similarity search
+- `chromadb` - Persistent vector storage
 - `numpy` - Scientific computing
 - `tqdm` - Progress bars
